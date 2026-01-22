@@ -2,6 +2,8 @@
 
 source "https://rubygems.org"
 
+gem "jmespath"
+
 group :development do
   gem "rubocop-discourse"
   gem "syntax_tree"

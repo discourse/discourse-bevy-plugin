@@ -1,1 +1,12 @@
 en:
+  # bevy_plugin:
+  #   admin:
+  #     title: "Bevy Events"
+  #     template_label: "Event Topic Template"
+  #     template_description: "Customize how Bevy events are formatted in Discourse topics"
+  #     save_success: "Template saved successfully"
+  site_settings:
+    bevy_plugin_enabled: "Enable Bevy event integration plugin"
+    bevy_webhook_api_key: "API key for authenticating Bevy webhook requests. Configure this in your Bevy webhook settings."
+    bevy_webhook_category_id: "Category where event topics will be created. If not set, topics will be created in Uncategorized."
+    # bevy_event_topic_template: "Template for event topic content. Supports Mustache variables like {{title}}, {{description}}, {{start_date_formatted}}, {{url}}, etc. Use [event] markup for calendar integration. See plugin README for available variables."
