@@ -21,7 +21,7 @@ describe BevyPlugin::WebhooksController do
       post "/bevy/webhooks.json",
            params: bevy_event_payload.to_json,
            headers: {
-             "X-Bevy-Signature": "wrong-token",
+             "X-BEVY-SECRET": "wrong-token",
              CONTENT_TYPE: "application/json",
            }
 
@@ -48,7 +48,7 @@ describe BevyPlugin::WebhooksController do
         post "/bevy/webhooks.json",
              params: bevy_event_payload.to_json,
              headers: {
-               "X-Bevy-Signature": "test",
+               "X-BEVY-SECRET": "test",
                CONTENT_TYPE: "application/json",
              }
 
@@ -77,7 +77,7 @@ describe BevyPlugin::WebhooksController do
         post "/bevy/webhooks.json",
              params: bevy_event_payload.to_json,
              headers: {
-               "X-Bevy-Signature": "test",
+               "X-BEVY-SECRET": "test",
                CONTENT_TYPE: "application/json",
              }
 
@@ -94,7 +94,7 @@ describe BevyPlugin::WebhooksController do
         post "/bevy/webhooks.json",
              params: updated_payload.to_json,
              headers: {
-               "X-Bevy-Signature": "test",
+               "X-BEVY-SECRET": "test",
                CONTENT_TYPE: "application/json",
              }
 
@@ -110,6 +110,65 @@ describe BevyPlugin::WebhooksController do
 
         # BevyEvent should still point to the same topic
         expect(bevy_event.reload.post.topic.id).to eq(topic.id)
+      end
+
+      it "applies tags from JMESPath rules to created topics" do
+        SiteSetting.bevy_events_tag_rules =
+          "has-venue,venue_name|virtual,event_type_title == 'Virtual Event type'"
+
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(200)
+
+        topic = Topic.last
+        tag_names = topic.tags.pluck(:name)
+
+        # venue_name is present in fixture, so "has-venue" should be added
+        expect(tag_names).to include("has-venue")
+
+        # Check if virtual tag is added based on event_type_title
+        payload_data = bevy_event_payload.first["data"].first
+        if payload_data["event_type_title"] == "Virtual Event type"
+          expect(tag_names).to include("virtual")
+        else
+          expect(tag_names).not_to include("virtual")
+        end
+      end
+
+      it "updates tags when event is updated" do
+        SiteSetting.bevy_events_tag_rules = "has-venue,venue_name"
+
+        # Create initial event
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        topic = Topic.last
+        expect(topic.tags.pluck(:name)).to include("has-venue")
+
+        # Update event to remove venue
+        updated_payload = bevy_event_payload.deep_dup
+        updated_payload.first["data"].first["venue_name"] = nil
+        updated_payload.first["data"].first["updated_ts"] = "#{Time.now}"
+
+        post "/bevy/webhooks.json",
+             params: updated_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        topic.reload
+        # Tag should be removed since venue_name is now nil
+        expect(topic.tags.pluck(:name)).not_to include("has-venue")
       end
     end
     context "when webhook type is attendee" do
@@ -135,7 +194,7 @@ describe BevyPlugin::WebhooksController do
         post "/bevy/webhooks.json",
              params: bevy_attendee_payload.to_json,
              headers: {
-               "X-Bevy-Signature": "test",
+               "X-BEVY-SECRET": "test",
                CONTENT_TYPE: "application/json",
              }
 
@@ -154,7 +213,7 @@ describe BevyPlugin::WebhooksController do
         post "/bevy/webhooks.json",
              params: bevy_attendee_payload.to_json,
              headers: {
-               "X-Bevy-Signature": "test",
+               "X-BEVY-SECRET": "test",
                CONTENT_TYPE: "application/json",
              }
 

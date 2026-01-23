@@ -12,8 +12,6 @@ gem "jmespath", "1.6.2"
 
 enabled_site_setting :bevy_plugin_enabled
 
-add_admin_route "bevy_plugin.admin.title", "bevy-plugin"
-
 module ::BevyPlugin
   PLUGIN_NAME = "discourse-bevy-plugin"
 end

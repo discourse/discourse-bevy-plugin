@@ -8,27 +8,6 @@ bevy_plugin:
   bevy_webhook_category_id:
     default: ""
     type: category
-  bevy_event_topic_template:
-    default: |
-      {{#has_dates}}[event start="{{start_date_formatted}}"{{#end_date_formatted}} end="{{end_date_formatted}}"{{/end_date_formatted}} timezone="{{chapter_timezone}}"{{#has_location}} location="{{location}}"{{/has_location}}{{#url}} url="{{url}}"{{/url}}]
-      [/event]
-
-      {{/has_dates}}{{#has_picture}}![image]({{picture_url}})
-
-      {{/has_picture}}{{description}}
-
-      ## Event Details
-
-      {{#has_chapter}}### Chapter
-      {{chapter_location}}
-
-      {{/has_chapter}}{{#event_type_title}}**Event Type:** {{event_type_title}}
-
-      {{/event_type_title}}{{#total_attendees}}**Attendees:** {{total_attendees}}
-
-      {{/total_attendees}}{{#url}}[View Event on Bevy]({{url}}){{/url}}
-    type: textarea
-    textarea_rows: 15
-  bevy_events_jmes_tag_rules:
+  bevy_events_tag_rules:
     default: ""
     type: string

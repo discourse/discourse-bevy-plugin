@@ -4,7 +4,7 @@ module BevyPlugin
   class WebhooksController < ::ApplicationController
     requires_plugin ::BevyPlugin::PLUGIN_NAME
 
-    skip_before_action :verify_authenticity_token, :redirect_to_login_if_required
+    skip_before_action :verify_authenticity_token, :redirect_to_login_if_required, :check_xhr
 
     before_action :filter_unhandled, :ensure_webhook_authenticity, :filter_expired_event
 
@@ -118,13 +118,14 @@ module BevyPlugin
         return render json: { error: "Webhook not configured" }, status: :service_unavailable
       end
 
-      provided_key = request.headers["X-Bevy-Signature"]
+      provided_key = request.headers["X-BEVY-SECRET"]
 
       render json: { error: "Unauthorized" }, status: :unauthorized unless provided_key == api_key
     end
 
     def process_event(events)
       return [] if events[:data].empty?
+
       results = []
       events[:data].each do |event|
         next unless event[:status] == "Published"
@@ -229,16 +230,12 @@ module BevyPlugin
         Rails.logger.warn("Bevy webhook: Invalid end_date for event #{event[:id]}: #{e.message}")
       end
 
-      if start_date
-        start_date_str = start_date.strftime("%Y-%m-%d %H:%M")
-        end_date_str = end_date.strftime("%Y-%m-%d %H:%M") if end_date
-
-        parts << %{<div class="discourse-post-event" data-start="#{start_date_str}" data-end="#{end_date_str}" data-timezone="UTC" data-status="public"></div>}
-        parts << ""
-      end
-
       if event.dig(:picture, :url).present?
+        parts << '<div class="bevy-event-img" data-bevy-event-image>'
+        parts << ""
         parts << "![#{event[:title]}](#{event.dig(:picture, :url)})"
+        parts << ""
+        parts << "</div>"
         parts << ""
       end
 
@@ -268,6 +265,14 @@ module BevyPlugin
       end
 
       parts << ""
+
+      if start_date
+        start_date_str = start_date.strftime("%Y-%m-%d %H:%M")
+        end_date_str = end_date.strftime("%Y-%m-%d %H:%M") if end_date
+
+        parts << %{<div class="discourse-post-event" data-start="#{start_date_str}" data-end="#{end_date_str}" data-timezone="UTC" data-status="public"></div>}
+        parts << ""
+      end
 
       if event[:url].present?
         parts << "---"

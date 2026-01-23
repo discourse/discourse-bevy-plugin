@@ -17,10 +17,16 @@ module ::BevyPlugin
     private
 
     def self.rules
-      setting_value = SiteSetting.bevy_events_jmes_tag_rules
+      setting_value = SiteSetting.bevy_events_tag_rules
       return {} if setting_value.blank?
 
-      setting_value.split("|").map { |rule| rule.split(",", 2) }.to_h
+      setting_value
+        .split("|")
+        .map do |rule|
+          parts = rule.split(",", 2)
+          [parts[0].strip, parts[1].strip]
+        end
+        .to_h
     end
   end
 end
