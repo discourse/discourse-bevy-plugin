@@ -1,6 +1,10 @@
 en:
-  js:
+  admin_js:
     admin:
+      site_settings:
+        categories:
+          bevy_plugin: "Discourse Bevy Integration plugin"
+  js:
       bevy_plugin:
         title: "Bevy Events"
         template:

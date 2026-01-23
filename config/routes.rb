@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-BevyPlugin::Engine.routes.draw do
-  scope "/bevy" do
-    post "/webhooks" => "webhooks#receive"
-  end
-end
+BevyPlugin::Engine.routes.draw { post "/webhooks" => "webhooks#receive" }
 
-Discourse::Application.routes.append { mount ::BevyPlugin::Engine, at: "/" }
+Discourse::Application.routes.append { mount ::BevyPlugin::Engine, at: "/bevy" }
