@@ -2,4 +2,4 @@
 
 BevyPlugin::Engine.routes.draw { post "/webhooks" => "webhooks#receive" }
 
-Discourse::Application.routes.append { mount ::BevyPlugin::Engine, at: "/bevy" }
+Discourse::Application.routes.draw { mount ::BevyPlugin::Engine, at: "/bevy" }
