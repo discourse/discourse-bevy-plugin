@@ -15,9 +15,11 @@ end
 #  bevy_updated_ts :datetime         not null
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
-#  event_id        :integer          not null
+#  bevy_event_id   :integer          not null
+#  post_id         :integer
 #
 # Indexes
 #
-#  index_bevy_events_on_id_and_timestamp  (event_id,bevy_updated_ts)
+#  index_bevy_events_on_id_and_timestamp  (bevy_event_id,bevy_updated_ts)
+#  index_bevy_events_on_post_id           (post_id)
 #

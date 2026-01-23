@@ -85,7 +85,7 @@ describe BevyPlugin::JmesTagExtractor do
       end
     end
 
-    context "edge cases" do
+    describe "edge cases" do
       it "handles false boolean results" do
         SiteSetting.bevy_events_tag_rules = "never,`false`"
         tags = described_class.extract_tags_from_data(sample_event_data)
