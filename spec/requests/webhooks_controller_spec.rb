@@ -91,22 +91,20 @@ describe BevyPlugin::WebhooksController do
         updated_payload.first["data"].first["description_short"] = "Updated description"
         updated_payload.first["data"].first["updated_ts"] = "#{Time.now}"
 
-        post "/bevy/webhooks.json",
-             params: updated_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        expect {
+          post "/bevy/webhooks.json",
+               params: updated_payload.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
 
-        expect(response.status).to eq(200)
+          expect(response.status).to eq(200)
+        }.to not_change { Topic.count }.and(not_change { BevyEvent.count })
 
-        # Should update the same topic, not create a new one
-        expect(Topic.count).to eq(1)
-        expect(BevyEvent.count).to eq(1)
-
-        updated_topic = Topic.find(topic.id)
-        expect(updated_topic.title).to eq("Updated Event Title")
-        expect(updated_topic.first_post.raw).to include("Updated description")
+        topic.reload
+        expect(topic.title).to eq("Updated Event Title")
+        expect(topic.first_post.raw).to include("Updated description")
 
         # BevyEvent should still point to the same topic
         expect(bevy_event.reload.post.topic.id).to eq(topic.id)
@@ -131,19 +129,12 @@ describe BevyPlugin::WebhooksController do
         # venue_name is present in fixture, so "has-venue" should be added
         expect(tag_names).to include("has-venue")
 
-        # Check if virtual tag is added based on event_type_title
-        payload_data = bevy_event_payload.first["data"].first
-        if payload_data["event_type_title"] == "Virtual Event type"
-          expect(tag_names).to include("virtual")
-        else
-          expect(tag_names).not_to include("virtual")
-        end
+        expect(tag_names).to include("virtual")
       end
 
       it "updates tags when event is updated" do
         SiteSetting.bevy_events_tag_rules = "has-venue,venue_name"
 
-        # Create initial event
         post "/bevy/webhooks.json",
              params: bevy_event_payload.to_json,
              headers: {
@@ -154,7 +145,6 @@ describe BevyPlugin::WebhooksController do
         topic = Topic.last
         expect(topic.tags.pluck(:name)).to include("has-venue")
 
-        # Update event to remove venue
         updated_payload = bevy_event_payload.deep_dup
         updated_payload.first["data"].first["venue_name"] = nil
         updated_payload.first["data"].first["updated_ts"] = "#{Time.now}"
@@ -167,8 +157,89 @@ describe BevyPlugin::WebhooksController do
              }
 
         topic.reload
-        # Tag should be removed since venue_name is now nil
         expect(topic.tags.pluck(:name)).not_to include("has-venue")
+      end
+
+      it "allows retry when BevyEvent exists but topic creation failed" do
+        payload_data = bevy_event_payload.first["data"].first
+        timestamp = Time.parse(payload_data["updated_ts"])
+
+        bevy_event =
+          BevyEvent.create!(bevy_event_id: payload_data["id"], bevy_updated_ts: timestamp)
+
+        expect(bevy_event.post_id).to be_nil
+        expect(BevyEvent.count).to eq(1)
+        expect(Topic.count).to eq(0)
+
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(200)
+        expect(BevyEvent.count).to eq(1)
+        expect(Topic.count).to eq(1)
+
+        bevy_event.reload
+        expect(bevy_event.post_id).to be_present
+        expect(bevy_event.post.topic.title).to eq(payload_data["title"])
+      end
+
+      it "rejects webhook with same timestamp when event was successfully processed" do
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(200)
+        expect(BevyEvent.count).to eq(1)
+        expect(Topic.count).to eq(1)
+
+        bevy_event = BevyEvent.last
+        expect(bevy_event.post_id).to be_present
+
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(404)
+        expect(BevyEvent.count).to eq(1)
+        expect(Topic.count).to eq(1)
+      end
+
+      it "processes webhook with newer timestamp even when post exists" do
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(200)
+        original_topic = Topic.last
+
+        updated_payload = bevy_event_payload.deep_dup
+        updated_payload.first["data"].first["title"] = "Updated Title"
+        updated_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+
+        post "/bevy/webhooks.json",
+             params: updated_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(200)
+        expect(Topic.count).to eq(1)
+        original_topic.reload
+        expect(original_topic.title).to eq("Updated Title")
       end
     end
     context "when webhook type is attendee" do

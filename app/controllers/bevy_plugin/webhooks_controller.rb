@@ -76,7 +76,7 @@ module BevyPlugin
         discourse_event = DiscoursePostEvent::Event.find_by(id: bevy_event.post_id)
 
         unless discourse_event
-          Rails.logger.warn("Bevy webhook: No discourse event found for post #{discourse_event.id}")
+          Rails.logger.warn("Bevy webhook: No discourse event found for post #{bevy_event.post_id}")
           next
         end
 
@@ -91,12 +91,19 @@ module BevyPlugin
 
         attrs =
           users_by_email.map do |email, user|
+            bevy_status = emails_statuses[email].to_sym
+            discourse_status = status_map[bevy_status]
+
+            if discourse_status.nil?
+              raise "Unknown Bevy attendee status: '#{bevy_status}'. Expected one of: #{status_map.keys.join(", ")}"
+            end
+
             {
               post_id: discourse_event.id,
               created_at: timestamp,
               updated_at: timestamp,
               user_id: user.id,
-              status: status_map[emails_statuses[email].to_sym],
+              status: discourse_status,
             }
           end
 
@@ -120,13 +127,17 @@ module BevyPlugin
 
       provided_key = request.headers["X-BEVY-SECRET"]
 
-      render json: { error: "Unauthorized" }, status: :unauthorized unless provided_key == api_key
+      unless ActiveSupport::SecurityUtils.secure_compare(provided_key.to_s, api_key)
+        render json: { error: "Unauthorized" }, status: :unauthorized
+      end
     end
 
     def process_event(events)
       return [] if events[:data].empty?
 
       results = []
+      errors = []
+
       events[:data].each do |event|
         next unless event[:status] == "Published"
 
@@ -140,12 +151,14 @@ module BevyPlugin
         }
 
         results << result
+      rescue => e
+        Rails.logger.error(
+          "Failed to create topic for event #{event[:id]}: #{e.message}\n#{e.backtrace.first(5).join("\n")}",
+        )
+        errors << { error: e.message, bevy_event_id: event[:id] }
       end
 
-      results
-    rescue => e
-      Rails.logger.error("Failed to create topic for event #{event[:id]}: #{e.message}")
-      [{ error: e.message, bevy_event_id: event[:id] }]
+      errors.any? ? results + errors : results
     end
 
     def find_or_create_event_topic(event)
@@ -284,11 +297,20 @@ module BevyPlugin
     rescue => e
       Rails.logger.error("Bevy webhook content building error: #{e.message}")
 
-      # Fallback to basic content
-      fallback_parts = []
-      fallback_parts << event[:description_short] if event[:description_short].present?
-      fallback_parts << "[View Event on Bevy](#{event[:url]})" if event[:url].present?
-      fallback_parts.join("\n\n")
+      # Try fallback to basic content, but if that fails too, re-raise
+      begin
+        fallback_parts = []
+        fallback_parts << event[:description_short] if event[:description_short].present?
+        fallback_parts << "[View Event on Bevy](#{event[:url]})" if event[:url].present?
+
+        raise "Cannot build content: event data is insufficient" if fallback_parts.empty?
+
+        Rails.logger.warn("Bevy webhook: Using fallback content for event #{event[:id]}")
+        fallback_parts.join("\n\n")
+      rescue StandardError
+        Rails.logger.error("Bevy webhook: Fallback content also failed for event #{event[:id]}")
+        raise e
+      end
     end
 
     def extract_tags_from_event(event)
@@ -321,20 +343,22 @@ module BevyPlugin
             next
           end
 
-          existing_event = ::BevyEvent.find_by(bevy_event_id: event[:id])
+          begin
+            existing_event =
+              ::BevyEvent.find_or_create_by!(bevy_event_id: event[:id]) do |bevy_event|
+                bevy_event.bevy_updated_ts = updated_ts
+              end
 
-          if existing_event
-            if existing_event.bevy_updated_ts >= updated_ts
+            if existing_event.post_id.present? && existing_event.bevy_updated_ts >= updated_ts
               Rails.logger.info(
                 "Bevy webhook: Skipping outdated event #{event[:id]} (timestamp: #{updated_ts})",
               )
               raise Discourse::NotFound
-            else
-              existing_event.bevy_updated_ts = updated_ts
-              existing_event.save!
+            elsif !existing_event.new_record?
+              existing_event.update!(bevy_updated_ts: updated_ts)
             end
-          else
-            ::BevyEvent.create!(bevy_event_id: event[:id], bevy_updated_ts: updated_ts)
+          rescue ActiveRecord::RecordNotUnique
+            retry
           end
         end
       end

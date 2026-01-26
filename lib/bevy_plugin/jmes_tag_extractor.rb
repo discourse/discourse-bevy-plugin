@@ -12,21 +12,39 @@ module ::BevyPlugin
           result && result != false
         end
         .keys
+    rescue ::JMESPath::Errors::ParseError => e
+      Rails.logger.error("Bevy plugin: JMESPath parsing error: #{e.message}")
+      raise
+    rescue => e
+      Rails.logger.error("Bevy plugin: Error extracting tags: #{e.message}")
+      raise
     end
 
     private
 
     def self.rules
+      @rules_cache ||= {}
       setting_value = SiteSetting.bevy_events_tag_rules
       return {} if setting_value.blank?
 
-      setting_value
-        .split("|")
-        .map do |rule|
-          parts = rule.split(",", 2)
-          [parts[0].strip, parts[1].strip]
-        end
-        .to_h
+      @rules_cache[setting_value] ||=
+        setting_value
+          .split("|")
+          .filter_map do |rule|
+            parts = rule.split(",", 2)
+            tag_name = parts[0]&.strip
+            expression = parts[1]&.strip
+
+            if tag_name.blank? || expression.blank?
+              Rails.logger.warn(
+                "Bevy plugin: Invalid tag rule format: '#{rule}'. Expected 'tag_name,jmes_expression'",
+              )
+              next
+            end
+
+            [tag_name, expression]
+          end
+          .to_h
     end
   end
 end
