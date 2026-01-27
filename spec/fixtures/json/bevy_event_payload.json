@@ -1,0 +1,58 @@
+[
+  {
+    "type": "event",
+    "data": [
+      {
+        "id": 1,
+        "title": "My Event Title updated again new date",
+        "key_persons": [],
+        "description_short": "My Event description",
+        "picture": {
+          "url": "",
+          "path": "...",
+          "thumbnail_width": 400,
+          "thumbnail_height": 400,
+          "thumbnail_format": "auto",
+          "thumbnail_url": "..."
+        },
+        "chapter": {
+          "chapter_location": "Catamarca (AR)",
+          "city": "Catamarca",
+          "country": "AR",
+          "country_name": "Argentina",
+          "description": "<p>Cras ac mattis ligula, sit amet pulvinar dui.</p>",
+          "id": 8,
+          "hide_country_info": false,
+          "logo": {},
+          "chapter_team": [
+            {
+              "id": 22,
+              "user": {},
+              "role": {},
+              "title": "Chapter leader"
+            }
+          ],
+          "state": "",
+          "timezone": "Pacific/Niue",
+          "title": "John Perez",
+          "relative_url": "/chapter-slug/",
+          "url": "https://bevy.bevylabs.com/chapter-slug/"
+        },
+        "start_date": "2026-05-01T12:30:15-09:00",
+        "end_date": "2026-05-01T13:30:00-09:00",
+        "url": "https://bevy.bevylabs.com/events/details/chapter-slug-presents-my-event/",
+        "status": "Published",
+        "created_ts": "2023-05-11T06:28:34.479747-09:00",
+        "updated_ts": "2026-01-14T07:23:57.064179-09:00",
+        "published_by_full_name": "John Perez",
+        "venue_name": "Boca Juniors",
+        "venue_address": "780 Avenida Almirante Brown",
+        "venue_city": "C1155AER",
+        "venue_zip_code": "C1155",
+        "get_event_address": "My house address",
+        "event_type_title": "Virtual Event type",
+        "allows_cohosting": false
+      }
+    ]
+  }
+]

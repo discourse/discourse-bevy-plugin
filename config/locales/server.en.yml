@@ -1,1 +1,13 @@
 en:
+  site_settings:
+    bevy_plugin_enabled: "Enable Bevy event integration plugin"
+    bevy_webhook_api_key: "API key for authenticating Bevy webhook requests. Configure this in your Bevy webhook settings."
+    bevy_webhook_category_id: "Category where event topics will be created. If not set, topics will be created in Uncategorized."
+    bevy_events_tag_rules: "Add tags to topics using JMES path expressions. Example, `TagName, JMES expression 1| TagName2, JMES expression 2"
+  bevy:
+    event:
+      details: "Event Details"
+      where: "Where"
+      type: "Type"
+      chapter: "Chapter"
+      view_and_rsvp: "View and RSVP on Bevy →"

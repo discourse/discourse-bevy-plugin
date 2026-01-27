@@ -1,0 +1,67 @@
+[
+  {
+    "type": "attendee",
+    "data": [
+      {
+        "id": 1,
+        "first_name": "John",
+        "last_name": "Perez",
+        "email": "test@test.com",
+        "user_id": 4,
+        "created_date": "2021-10-15T16:29:08Z",
+        "checkin_date": null,
+        "deleted_date": "2021-10-18T16:04:40Z",
+        "ticket_title": "RSVP",
+        "ticket_audience_type_enum_value": "Virtual",
+        "status": "registered",
+        "surveys": {
+          "pre_order": {
+            "created_date": "2019-05-25T19:44:24Z", 
+            "fields": [
+              {
+                "label": "Company Size", 
+                "value": "51 - 200"
+              }, 
+              {
+                "label": "Gender", 
+                "value": "Male"
+              }
+            ]
+          }
+        },
+        "event_chapter_id": 8,
+        "event_id": 1
+      },
+      {
+        "id": 1,
+        "first_name": "John",
+        "last_name": "Perez",
+        "email": "test2@test.com",
+        "user_id": 5,
+        "created_date": "2021-10-15T16:29:08Z",
+        "checkin_date": null,
+        "deleted_date": "2021-10-18T16:04:40Z",
+        "ticket_title": "RSVP",
+        "ticket_audience_type_enum_value": "Virtual",
+        "status": "registered",
+        "surveys": {
+          "pre_order": {
+            "created_date": "2019-05-25T19:44:24Z", 
+            "fields": [
+              {
+                "label": "Company Size", 
+                "value": "51 - 200"
+              }, 
+              {
+                "label": "Gender", 
+                "value": "Male"
+              }
+            ]
+          }
+        },
+        "event_chapter_id": 8,
+        "event_id": 1
+      }
+    ]
+  }
+]  

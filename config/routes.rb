@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-MyPluginModule::Engine.routes.draw do
-  get "/examples" => "examples#index"
-  # define routes here
-end
+BevyPlugin::Engine.routes.draw { post "/webhooks" => "webhooks#receive" }
 
-Discourse::Application.routes.draw { mount ::MyPluginModule::Engine, at: "my-plugin" }
+Discourse::Application.routes.draw { mount ::BevyPlugin::Engine, at: "/bevy" }

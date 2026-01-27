@@ -3,7 +3,22 @@ en:
     admin:
       site_settings:
         categories:
-          TODO_plugin_name: "Plugin Name"
+          bevy_plugin: "Discourse Bevy Integration plugin"
   js:
-    discourse_plugin_name:
-      placeholder: placeholder
+      bevy_plugin:
+        title: "Bevy Events"
+        template:
+          label: "Event Topic Template"
+          description: "Use {{variable}} syntax for placeholders. Click placeholder buttons to insert."
+          preview: "Preview"
+          save: "Save Template"
+          save_success: "Template saved successfully"
+        placeholders:
+          title: "Available Placeholders"
+          core: "Core Event Fields"
+          dates: "Date & Time"
+          location: "Location"
+          image: "Image"
+          chapter: "Chapter"
+          published_by: "Published By"
+          system: "System"

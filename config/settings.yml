@@ -1,4 +1,13 @@
-TODO_plugin_name:
-  plugin_name_enabled:
+bevy_plugin:
+  bevy_plugin_enabled:
     default: false
     client: true
+  bevy_webhook_api_key:
+    default: ""
+    secret: true
+  bevy_webhook_category_id:
+    default: ""
+    type: category
+  bevy_events_tag_rules:
+    default: ""
+    type: string
