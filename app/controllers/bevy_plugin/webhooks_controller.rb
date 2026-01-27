@@ -244,7 +244,7 @@ module BevyPlugin
       end
 
       if event.dig(:picture, :url).present?
-        parts << '<div class="bevy-event-img" data-bevy-event-image>'
+        parts << "<div data-bevy-event-image>"
         parts << ""
         parts << "![#{event[:title]}](#{event.dig(:picture, :url)})"
         parts << ""
@@ -257,11 +257,11 @@ module BevyPlugin
         parts << ""
       end
 
-      parts << "## Event Details"
+      parts << "## #{I18n.t("bevy.event.details")}"
       parts << ""
 
       if event[:venue_name].present? || event[:get_event_address].present?
-        location_line = "**Where:** "
+        location_line = "**#{I18n.t("bevy.event.where")}:** "
         location_parts = []
 
         location_parts << event[:venue_name] if event[:venue_name].present?
@@ -271,10 +271,12 @@ module BevyPlugin
         parts << location_line
       end
 
-      parts << "**Type:** #{event[:event_type_title]}" if event[:event_type_title].present?
+      if event[:event_type_title].present?
+        parts << "**#{I18n.t("bevy.event.type")}:** #{event[:event_type_title]}"
+      end
 
       if event.dig(:chapter, :chapter_location).present?
-        parts << "**Chapter:** #{event.dig(:chapter, :chapter_location)}"
+        parts << "**#{I18n.t("bevy.event.chapter")}:** #{event.dig(:chapter, :chapter_location)}"
       end
 
       parts << ""
@@ -290,7 +292,7 @@ module BevyPlugin
       if event[:url].present?
         parts << "---"
         parts << ""
-        parts << "[View and RSVP on Bevy →](#{event[:url]})"
+        parts << "[#{I18n.t("bevy.event.view_and_rsvp")}](#{event[:url]})"
       end
 
       parts.join("\n")
@@ -301,7 +303,9 @@ module BevyPlugin
       begin
         fallback_parts = []
         fallback_parts << event[:description_short] if event[:description_short].present?
-        fallback_parts << "[View Event on Bevy](#{event[:url]})" if event[:url].present?
+        if event[:url].present?
+          fallback_parts << "[#{I18n.t("bevy.event.view_event_on_bevy")}](#{event[:url]})"
+        end
 
         raise "Cannot build content: event data is insufficient" if fallback_parts.empty?
 
