@@ -73,6 +73,39 @@ describe BevyPlugin::WebhooksController do
         )
       end
 
+      it "can use extra fields to create a bevy_event and topic with an event" do
+        bevy_event_payload.first["data"].first["description"] = "Updated Event Title"
+
+        post "/bevy/webhooks.json",
+             params: bevy_event_payload.to_json,
+             headers: {
+               "X-BEVY-SECRET": "test",
+               CONTENT_TYPE: "application/json",
+             }
+
+        expect(response.status).to eq(200)
+
+        bevy_event_topic = Topic.last
+        payload_data = bevy_event_payload.first["data"].first
+        bevy_event = BevyEvent.last
+
+        expect(bevy_event.bevy_event_id).to eq(payload_data["id"])
+        expect(bevy_event.post_id).to eq(Post.last.id)
+        expect(bevy_event.bevy_updated_ts).to be_present
+
+        expect(bevy_event_topic.title).to eq(payload_data["title"])
+        expect(bevy_event_topic.first_post.raw).to include(
+          bevy_event_payload.first["data"].first["description"],
+        )
+
+        expect(DiscoursePostEvent::EventDate.last.starts_at.strftime("%Y-%m-%d %H:%M")).to eq(
+          Time.parse(payload_data["start_date"]).utc.strftime("%Y-%m-%d %H:%M"),
+        )
+        expect(DiscoursePostEvent::EventDate.last.ends_at.strftime("%Y-%m-%d %H:%M")).to eq(
+          Time.parse(payload_data["end_date"]).utc.strftime("%Y-%m-%d %H:%M"),
+        )
+      end
+
       it "updates an existing event when webhook is received again" do
         post "/bevy/webhooks.json",
              params: bevy_event_payload.to_json,

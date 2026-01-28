@@ -252,7 +252,10 @@ module BevyPlugin
         parts << ""
       end
 
-      if event[:description_short].present?
+      if event[:description].present?
+        parts << event[:description]
+        parts << ""
+      elsif event[:description_short].present?
         parts << event[:description_short]
         parts << ""
       end
