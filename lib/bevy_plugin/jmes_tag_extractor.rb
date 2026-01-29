@@ -27,24 +27,23 @@ module ::BevyPlugin
       setting_value = SiteSetting.bevy_events_tag_rules
       return {} if setting_value.blank?
 
-      @rules_cache[setting_value] ||=
-        setting_value
-          .split("|")
-          .filter_map do |rule|
-            parts = rule.split(",", 2)
-            tag_name = parts[0]&.strip
-            expression = parts[1]&.strip
+      @rules_cache[setting_value] ||= setting_value
+        .split("|")
+        .filter_map do |rule|
+          parts = rule.split(",", 2)
+          tag_name = parts[0]&.strip
+          expression = parts[1]&.strip
 
-            if tag_name.blank? || expression.blank?
-              Rails.logger.warn(
-                "Bevy plugin: Invalid tag rule format: '#{rule}'. Expected 'tag_name,jmes_expression'",
-              )
-              next
-            end
-
-            [tag_name, expression]
+          if tag_name.blank? || expression.blank?
+            Rails.logger.warn(
+              "Bevy plugin: Invalid tag rule format: '#{rule}'. Expected 'tag_name,jmes_expression'",
+            )
+            next
           end
-          .to_h
+
+          [tag_name, expression]
+        end
+        .to_h
     end
   end
 end

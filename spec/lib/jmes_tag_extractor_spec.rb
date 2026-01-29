@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "rails_helper"
-
 describe BevyPlugin::JmesTagExtractor do
   let(:bevy_event_payload) do
     JSON.parse(File.read(File.join(__dir__, "../fixtures/json/bevy_event_payload.json")))
