@@ -98,7 +98,7 @@ module BevyPlugin
     end
 
     def add_event_metadata(parts, start_date, end_date)
-      return unless start_date && end_date
+      return if !start_date && !end_date
 
       start_date_str = start_date.strftime("%Y-%m-%d %H:%M")
       end_date_str = end_date.strftime("%Y-%m-%d %H:%M")
