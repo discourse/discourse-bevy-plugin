@@ -18,6 +18,10 @@ end
 
 require_relative "lib/bevy_plugin/engine"
 require_relative "lib/bevy_plugin/jmes_tag_extractor"
+require_relative "lib/bevy_plugin/tag_extractor"
+require_relative "lib/bevy_plugin/content_builder"
+require_relative "lib/bevy_plugin/event_processor"
+require_relative "lib/bevy_plugin/attendee_processor"
 
 after_initialize do
   # Code which should run after Rails has finished booting

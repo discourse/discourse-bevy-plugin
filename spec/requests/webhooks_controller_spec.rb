@@ -272,6 +272,152 @@ describe BevyPlugin::WebhooksController do
         original_topic.reload
         expect(original_topic.title).to eq("Updated Title")
       end
+
+      context "when event status is Canceled" do
+        it "updates existing event when status is changed to Canceled" do
+          post "/bevy/webhooks.json",
+               params: bevy_event_payload.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
+
+          expect(response.status).to eq(200)
+          topic = Topic.last
+          original_raw = topic.first_post.raw
+
+          expect(original_raw).to include("discourse-post-event")
+          expect(original_raw).to include("View and RSVP")
+
+          bevy_event = BevyEvent.last
+
+          canceled_payload = bevy_event_payload.deep_dup
+          canceled_payload.first["data"].first["status"] = "Canceled"
+          canceled_payload.first["data"].first["title"] = "CANCELED: My Event Title"
+          canceled_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+
+          expect {
+            post "/bevy/webhooks.json",
+                 params: canceled_payload.to_json,
+                 headers: {
+                   "X-BEVY-SECRET": "test",
+                   CONTENT_TYPE: "application/json",
+                 }
+          }.to not_change { Topic.count }.and(not_change { BevyEvent.count })
+
+          expect(response.status).to eq(200)
+          response_data = response.parsed_body
+
+          expect(response_data["success"]).to be true
+          expect(response_data["topics"]).to be_present
+          expect(response_data["topics"].first["status"]).to eq("Canceled")
+          expect(response_data["topics"].first["bevy_event_id"]).to eq(
+            bevy_event_payload.first["data"].first["id"],
+          )
+
+          topic.reload
+          expect(topic.title).to eq("CANCELED: My Event Title")
+
+          expect(topic.first_post.raw).not_to include("discourse-post-event")
+          expect(topic.first_post.raw).not_to include("View and RSVP")
+
+          expect(topic.first_post.revisions.last.modifications["edit_reason"].last).to eq(
+            "Canceled from Bevy webhook",
+          )
+
+          expect(bevy_event.reload.post.topic.id).to eq(topic.id)
+        end
+
+        it "does not create a new topic for a canceled event that doesn't exist" do
+          canceled_payload = bevy_event_payload.deep_dup
+          canceled_payload.first["data"].first["status"] = "Canceled"
+          canceled_payload.first["data"].first["id"] = 999_999
+
+          post "/bevy/webhooks.json",
+               params: canceled_payload.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
+
+          expect(response.status).to eq(200)
+          response_data = response.parsed_body
+
+          expect(response_data["success"]).to be true
+          expect(response_data["topics"]).to be_empty
+
+          expect(Topic.count).to eq(0)
+          expect(BevyEvent.find_by(bevy_event_id: 999_999)).to be_nil
+        end
+
+        it "preserves event description and venue details when canceled" do
+          event_with_description = bevy_event_payload.deep_dup
+          event_with_description.first["data"].first["description"] =
+            "This is the full event description with important details."
+
+          post "/bevy/webhooks.json",
+               params: event_with_description.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
+
+          expect(response.status).to eq(200)
+          topic = Topic.last
+
+          expect(topic.first_post.raw).to include("This is the full event description")
+
+          canceled_payload = event_with_description.deep_dup
+          canceled_payload.first["data"].first["status"] = "Canceled"
+          canceled_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+
+          post "/bevy/webhooks.json",
+               params: canceled_payload.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
+
+          expect(response.status).to eq(200)
+
+          topic.reload
+          expect(topic.first_post.raw).to include("This is the full event description")
+          expect(topic.first_post.raw).to include("Boca Juniors")
+
+          expect(topic.first_post.raw).not_to include("discourse-post-event")
+        end
+
+        it "removes the Bevy URL from canceled events" do
+          post "/bevy/webhooks.json",
+               params: bevy_event_payload.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
+
+          expect(response.status).to eq(200)
+          topic = Topic.last
+          payload_url = bevy_event_payload.first["data"].first["url"]
+
+          expect(topic.first_post.raw).to include(payload_url)
+
+          canceled_payload = bevy_event_payload.deep_dup
+          canceled_payload.first["data"].first["status"] = "Canceled"
+          canceled_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+
+          post "/bevy/webhooks.json",
+               params: canceled_payload.to_json,
+               headers: {
+                 "X-BEVY-SECRET": "test",
+                 CONTENT_TYPE: "application/json",
+               }
+
+          expect(response.status).to eq(200)
+
+          topic.reload
+          expect(topic.first_post.raw).not_to include(payload_url)
+        end
+      end
     end
     context "when webhook type is attendee" do
       fab!(:post_event, :post)
