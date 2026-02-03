@@ -12,27 +12,36 @@ describe BevyPlugin::WebhooksController do
     Jobs.run_immediately!
   end
 
+  def send_webhook(payload, secret: "test")
+    post "/bevy/webhooks.json",
+         params: payload.to_json,
+         headers: {
+           "X-BEVY-SECRET": secret,
+           CONTENT_TYPE: "application/json",
+         }
+  end
+
+  def make_canceled_payload(base_payload, event_id: nil, title: nil)
+    canceled = base_payload.deep_dup
+    canceled.first["data"].first["status"] = "Canceled"
+    canceled.first["data"].first["id"] = event_id if event_id
+    canceled.first["data"].first["title"] = title if title
+    canceled.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+    canceled
+  end
+
   describe "invalid authorization token" do
     before { SiteSetting.bevy_webhook_api_key = "test" }
 
     it "returns 401 unauthorized when signature doesn't match" do
-      post "/bevy/webhooks.json",
-           params: bevy_event_payload.to_json,
-           headers: {
-             "X-BEVY-SECRET": "wrong-token",
-             CONTENT_TYPE: "application/json",
-           }
+      send_webhook(bevy_event_payload, secret: "wrong-token")
 
       expect(response.status).to eq(401)
       expect(response.parsed_body["error"]).to eq("Unauthorized")
     end
 
     it "returns 401 unauthorized when signature is missing" do
-      post "/bevy/webhooks.json",
-           params: bevy_event_payload.to_json,
-           headers: {
-             CONTENT_TYPE: "application/json",
-           }
+      send_webhook(bevy_event_payload, secret: nil)
 
       expect(response.status).to eq(401)
       expect(response.parsed_body["error"]).to eq("Unauthorized")
@@ -43,12 +52,7 @@ describe BevyPlugin::WebhooksController do
     before { SiteSetting.bevy_webhook_api_key = "test" }
     context "when webhook type is event" do
       it "creates a bevy_event and topic with an event" do
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
 
@@ -74,12 +78,7 @@ describe BevyPlugin::WebhooksController do
       it "can use extra fields to create a bevy_event and topic with an event" do
         bevy_event_payload.first["data"].first["description"] = "Updated Event Title"
 
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
 
@@ -105,12 +104,7 @@ describe BevyPlugin::WebhooksController do
       end
 
       it "updates an existing event when webhook is received again" do
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
 
@@ -123,12 +117,7 @@ describe BevyPlugin::WebhooksController do
         updated_payload.first["data"].first["updated_ts"] = "#{Time.now}"
 
         expect {
-          post "/bevy/webhooks.json",
-               params: updated_payload.to_json,
-               headers: {
-                 "X-BEVY-SECRET": "test",
-                 CONTENT_TYPE: "application/json",
-               }
+          send_webhook(updated_payload)
 
           expect(response.status).to eq(200)
         }.to not_change { Topic.count }.and(not_change { BevyEvent.count })
@@ -145,12 +134,7 @@ describe BevyPlugin::WebhooksController do
         SiteSetting.bevy_events_tag_rules =
           "has-venue,venue_name|virtual,event_type_title == 'Virtual Event type'"
 
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
 
@@ -166,12 +150,7 @@ describe BevyPlugin::WebhooksController do
       it "updates tags when event is updated" do
         SiteSetting.bevy_events_tag_rules = "has-venue,venue_name"
 
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         topic = Topic.last
         expect(topic.tags.pluck(:name)).to include("has-venue")
@@ -180,12 +159,7 @@ describe BevyPlugin::WebhooksController do
         updated_payload.first["data"].first["venue_name"] = nil
         updated_payload.first["data"].first["updated_ts"] = "#{Time.now}"
 
-        post "/bevy/webhooks.json",
-             params: updated_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(updated_payload)
 
         topic.reload
         expect(topic.tags.pluck(:name)).not_to include("has-venue")
@@ -202,12 +176,7 @@ describe BevyPlugin::WebhooksController do
         expect(BevyEvent.count).to eq(1)
         expect(Topic.count).to eq(0)
 
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
         expect(BevyEvent.count).to eq(1)
@@ -219,12 +188,7 @@ describe BevyPlugin::WebhooksController do
       end
 
       it "rejects webhook with same timestamp when event was successfully processed" do
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
         expect(BevyEvent.count).to eq(1)
@@ -233,12 +197,7 @@ describe BevyPlugin::WebhooksController do
         bevy_event = BevyEvent.last
         expect(bevy_event.post_id).to be_present
 
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(404)
         expect(BevyEvent.count).to eq(1)
@@ -246,12 +205,7 @@ describe BevyPlugin::WebhooksController do
       end
 
       it "processes webhook with newer timestamp even when post exists" do
-        post "/bevy/webhooks.json",
-             params: bevy_event_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_event_payload)
 
         expect(response.status).to eq(200)
         original_topic = Topic.last
@@ -260,17 +214,94 @@ describe BevyPlugin::WebhooksController do
         updated_payload.first["data"].first["title"] = "Updated Title"
         updated_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
 
-        post "/bevy/webhooks.json",
-             params: updated_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(updated_payload)
 
         expect(response.status).to eq(200)
         expect(Topic.count).to eq(1)
         original_topic.reload
         expect(original_topic.title).to eq("Updated Title")
+      end
+
+      context "when event status is Canceled" do
+        it "updates existing event when status is changed to Canceled" do
+          send_webhook(bevy_event_payload)
+          expect(response.status).to eq(200)
+          topic = Topic.last
+          original_raw = topic.first_post.raw
+
+          expect(original_raw).to include("discourse-post-event")
+          expect(original_raw).to include("View and RSVP")
+
+          expect(original_raw).to include("My Event description")
+          expect(original_raw).to include("Boca Juniors")
+
+          bevy_event = BevyEvent.last
+
+          canceled_payload = make_canceled_payload(bevy_event_payload, title: "CANCELED: My Event Title")
+
+          expect {
+            send_webhook(canceled_payload)
+          }.to not_change { Topic.count }.and(not_change { BevyEvent.count })
+
+          expect(response.status).to eq(200)
+          response_data = response.parsed_body
+
+          expect(response_data["success"]).to be true
+          expect(response_data["topics"]).to be_present
+          expect(response_data["topics"].first["status"]).to eq("Canceled")
+          expect(response_data["topics"].first["bevy_event_id"]).to eq(
+            bevy_event_payload.first["data"].first["id"],
+          )
+
+          topic.reload
+          expect(topic.title).to eq("CANCELED: My Event Title")
+
+          expect(topic.first_post.raw).to include("My Event description")
+          expect(topic.first_post.raw).to include("Boca Juniors")
+          expect(topic.first_post.raw).not_to include("discourse-post-event")
+          expect(topic.first_post.raw).not_to include("View and RSVP")
+
+          expect(topic.first_post.revisions.last.modifications["edit_reason"].last).to eq(
+            "Canceled from Bevy webhook",
+          )
+
+          expect(bevy_event.reload.post.topic.id).to eq(topic.id)
+        end
+
+        it "removes the Bevy URL from canceled events" do
+          send_webhook(bevy_event_payload)
+          expect(response.status).to eq(200)
+          topic = Topic.last
+          payload_url = bevy_event_payload.first["data"].first["url"]
+
+          expect(topic.first_post.raw).to include(payload_url)
+
+          canceled_payload = make_canceled_payload(bevy_event_payload)
+
+          send_webhook(canceled_payload)
+
+          expect(response.status).to eq(200)
+
+          topic.reload
+          expect(topic.first_post.raw).not_to include(payload_url)
+        end
+
+        it "does not create a new topic for a canceled event that doesn't exist" do
+          canceled_payload = make_canceled_payload(bevy_event_payload, event_id: 999_999)
+
+          initial_topic_count = Topic.count
+
+          send_webhook(canceled_payload)
+
+          expect(response.status).to eq(200)
+          response_data = response.parsed_body
+
+          expect(response_data["success"]).to be true
+          expect(response_data["topics"]).to be_empty
+
+          expect(Topic.count).to eq(initial_topic_count)
+          expect(BevyEvent.find_by(bevy_event_id: 999_999)).to be_nil
+        end
       end
     end
     context "when webhook type is attendee" do
@@ -293,12 +324,7 @@ describe BevyPlugin::WebhooksController do
       let!(:user2) { Fabricate(:user, email: bevy_attendee_payload.first["data"].second["email"]) }
 
       it "creates an invitees and is able to update them" do
-        post "/bevy/webhooks.json",
-             params: bevy_attendee_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_attendee_payload)
 
         expect(DiscoursePostEvent::Invitee.count).to eq(2)
 
@@ -312,12 +338,7 @@ describe BevyPlugin::WebhooksController do
 
         bevy_attendee_payload.first["data"].first["status"] = "deleted"
 
-        post "/bevy/webhooks.json",
-             params: bevy_attendee_payload.to_json,
-             headers: {
-               "X-BEVY-SECRET": "test",
-               CONTENT_TYPE: "application/json",
-             }
+        send_webhook(bevy_attendee_payload)
 
         invitees = invitees.reload
 
