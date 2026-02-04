@@ -28,7 +28,9 @@ module BevyPlugin
           topic = post.topic
           results << build_result(topic, event)
         else
-          Rails.logger.info("Bevy webhook: Skipping event #{event[:id]} with status #{event[:status]}")
+          Rails.logger.info(
+            "Bevy webhook: Skipping event #{event[:id]} with status #{event[:status]}",
+          )
         end
       rescue => e
         Rails.logger.error(

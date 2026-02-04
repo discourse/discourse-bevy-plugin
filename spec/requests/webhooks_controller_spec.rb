@@ -237,11 +237,12 @@ describe BevyPlugin::WebhooksController do
 
           bevy_event = BevyEvent.last
 
-          canceled_payload = make_canceled_payload(bevy_event_payload, title: "CANCELED: My Event Title")
+          canceled_payload =
+            make_canceled_payload(bevy_event_payload, title: "CANCELED: My Event Title")
 
-          expect {
-            send_webhook(canceled_payload)
-          }.to not_change { Topic.count }.and(not_change { BevyEvent.count })
+          expect { send_webhook(canceled_payload) }.to not_change { Topic.count }.and(
+            not_change { BevyEvent.count },
+          )
 
           expect(response.status).to eq(200)
           response_data = response.parsed_body
