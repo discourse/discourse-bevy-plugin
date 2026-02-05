@@ -85,9 +85,9 @@ module BevyPlugin
     end
 
     def add_chapter(parts)
-      return if @event.dig(:chapter, :chapter_location).blank?
+      return if @event.dig(:chapter, :title).blank?
 
-      parts << "**#{I18n.t("bevy.event.chapter")}:** #{@event.dig(:chapter, :chapter_location)}"
+      parts << "**#{I18n.t("bevy.event.chapter")}:** #{@event.dig(:chapter, :title)}"
     end
 
     def add_rsvp_link(parts)

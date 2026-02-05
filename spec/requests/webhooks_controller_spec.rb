@@ -222,6 +222,68 @@ describe BevyPlugin::WebhooksController do
         expect(original_topic.title).to eq("Updated Title")
       end
 
+      context "when event is hidden" do
+        it "does not create a topic " do
+          hidden_payload = bevy_event_payload.deep_dup
+          hidden_payload.first["data"].first["is_hidden"] = true
+          expect { send_webhook(hidden_payload) }.to not_change { Topic.count }.and(
+            not_change { BevyEvent.count },
+          )
+
+          expect(response.status).to eq(200)
+        end
+
+        it "removes orphaned BevyEvent record" do
+          payload_data = bevy_event_payload.first["data"].first
+          timestamp = Time.parse(payload_data["updated_ts"])
+
+          bevy_event =
+            BevyEvent.create!(bevy_event_id: payload_data["id"], bevy_updated_ts: timestamp)
+          expect(bevy_event.post_id).to be_nil
+
+          hidden_payload = bevy_event_payload.deep_dup
+          hidden_payload.first["data"].first["is_hidden"] = true
+          hidden_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+
+          expect { send_webhook(hidden_payload) }.to change { BevyEvent.count }.by(-1)
+
+          expect(response.status).to eq(200)
+          expect(BevyEvent.find_by(bevy_event_id: payload_data["id"])).to be_nil
+        end
+
+        it "removes topic and BevyEvent when event becomes hidden" do
+          send_webhook(bevy_event_payload)
+          expect(response.status).to eq(200)
+
+          bevy_event = BevyEvent.last
+          expect(bevy_event.post_id).to be_present
+          topic_id = bevy_event.post.topic.id
+
+          hidden_payload = bevy_event_payload.deep_dup
+          hidden_payload.first["data"].first["is_hidden"] = true
+          hidden_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
+
+          expect { send_webhook(hidden_payload) }.to change { BevyEvent.count }.by(-1).and(
+            change { Topic.count }.by(-1),
+          )
+
+          expect(response.status).to eq(200)
+          expect(BevyEvent.find_by(id: bevy_event.id)).to be_nil
+          expect(Topic.find_by(id: topic_id)).to be_nil
+        end
+
+        it "handles is_hidden=false as a normal published event" do
+          visible_payload = bevy_event_payload.deep_dup
+          visible_payload.first["data"].first["is_hidden"] = false
+
+          expect { send_webhook(visible_payload) }.to change { Topic.count }.by(1).and(
+            change { BevyEvent.count }.by(1),
+          )
+
+          expect(response.status).to eq(200)
+        end
+      end
+
       context "when event status is Canceled" do
         it "updates existing event when status is changed to Canceled" do
           send_webhook(bevy_event_payload)
@@ -237,11 +299,12 @@ describe BevyPlugin::WebhooksController do
 
           bevy_event = BevyEvent.last
 
-          canceled_payload = make_canceled_payload(bevy_event_payload, title: "CANCELED: My Event Title")
+          canceled_payload =
+            make_canceled_payload(bevy_event_payload, title: "CANCELED: My Event Title")
 
-          expect {
-            send_webhook(canceled_payload)
-          }.to not_change { Topic.count }.and(not_change { BevyEvent.count })
+          expect { send_webhook(canceled_payload) }.to not_change { Topic.count }.and(
+            not_change { BevyEvent.count },
+          )
 
           expect(response.status).to eq(200)
           response_data = response.parsed_body
