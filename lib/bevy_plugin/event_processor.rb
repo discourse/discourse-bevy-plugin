@@ -24,11 +24,22 @@ module BevyPlugin
             Rails.logger.warn("Bevy webhook: Cannot cancel non-existent event #{event[:id]}")
           end
         when "Published"
+          if event[:is_hidden] == true
+            delete_event_and_topic(event[:id])
+            Rails.logger.info(
+              "Bevy webhook: Skipping hidden event #{event[:id]}, removed topic if it existed",
+            )
+            next
+          end
+
           post = create_or_update_event(event)
+
           topic = post.topic
           results << build_result(topic, event)
         else
-          Rails.logger.info("Bevy webhook: Skipping event #{event[:id]} with status #{event[:status]}")
+          Rails.logger.info(
+            "Bevy webhook: Skipping event #{event[:id]} with status #{event[:status]}",
+          )
         end
       rescue => e
         Rails.logger.error(
@@ -51,7 +62,10 @@ module BevyPlugin
     end
 
     def update_event_post(event, edit_reason:, allow_creation:)
-      bevy_event = ::BevyEvent.find_by(bevy_event_id: event[:id])
+      bevy_event =
+        ::BevyEvent.find_or_create_by!(bevy_event_id: event[:id]) do |bevy_event|
+          bevy_event.bevy_updated_ts = Time.parse(event[:updated_ts])
+        end
 
       topic_title = event[:title]
       topic_content = ContentBuilder.new(event).build
@@ -127,6 +141,22 @@ module BevyPlugin
     def cleanup_orphaned_bevy_event(event_id)
       bevy_event = ::BevyEvent.find_by(bevy_event_id: event_id)
       bevy_event&.destroy if bevy_event && bevy_event.post_id.nil?
+    end
+
+    def delete_event_and_topic(event_id)
+      bevy_event = ::BevyEvent.find_by(bevy_event_id: event_id)
+      return unless bevy_event
+
+      if bevy_event.post_id
+        post = Post.find_by(id: bevy_event.post_id)
+        if post
+          topic = post.topic
+          PostDestroyer.new(Discourse.system_user, post).destroy
+          Rails.logger.info("Bevy webhook: Deleted topic #{topic.id} for hidden event #{event_id}")
+        end
+      end
+
+      bevy_event.destroy
     end
 
     def build_result(topic, event)

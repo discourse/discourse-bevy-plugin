@@ -97,17 +97,14 @@ module BevyPlugin
           end
 
           begin
-            existing_event =
-              ::BevyEvent.find_or_create_by!(bevy_event_id: event[:id]) do |bevy_event|
-                bevy_event.bevy_updated_ts = updated_ts
-              end
+            existing_event = ::BevyEvent.find_by(bevy_event_id: event[:id])
 
-            if existing_event.post_id.present? && existing_event.bevy_updated_ts >= updated_ts
+            if existing_event&.post_id.present? && existing_event.bevy_updated_ts >= updated_ts
               Rails.logger.info(
                 "Bevy webhook: Skipping outdated event #{event[:id]} (timestamp: #{updated_ts})",
               )
               raise Discourse::NotFound
-            elsif !existing_event.new_record?
+            elsif existing_event
               existing_event.update!(bevy_updated_ts: updated_ts)
             end
           rescue ActiveRecord::RecordNotUnique
