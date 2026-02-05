@@ -52,7 +52,8 @@ module BevyPlugin
       end
 
       users_by_email = find_users_by_emails(emails_statuses.keys)
-      attrs = build_invitee_attributes(users_by_email, emails_statuses, discourse_event.id, timestamp)
+      attrs =
+        build_invitee_attributes(users_by_email, emails_statuses, discourse_event.id, timestamp)
 
       DiscoursePostEvent::Invitee.upsert_all(attrs, unique_by: %i[post_id user_id]) if attrs.any?
 
