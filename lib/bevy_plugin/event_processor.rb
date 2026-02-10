@@ -24,10 +24,10 @@ module BevyPlugin
             Rails.logger.warn("Bevy webhook: Cannot cancel non-existent event #{event[:id]}")
           end
         when "Published"
-          if event[:is_hidden] == true
+          if event[:is_hidden] == true || event[:is_test] == true
             delete_event_and_topic(event[:id])
             Rails.logger.info(
-              "Bevy webhook: Skipping hidden event #{event[:id]}, removed topic if it existed",
+              "Bevy webhook: Skipping hidden/test event #{event[:id]}, removed topic if it existed",
             )
             next
           end

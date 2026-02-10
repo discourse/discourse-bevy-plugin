@@ -222,8 +222,8 @@ describe BevyPlugin::WebhooksController do
         expect(original_topic.title).to eq("Updated Title")
       end
 
-      context "when event is hidden" do
-        it "does not create a topic " do
+      context "when event is hidden or is test" do
+        it "does not create a topic or bevy event for a hidden event" do
           hidden_payload = bevy_event_payload.deep_dup
           hidden_payload.first["data"].first["is_hidden"] = true
           expect { send_webhook(hidden_payload) }.to not_change { Topic.count }.and(
@@ -233,22 +233,14 @@ describe BevyPlugin::WebhooksController do
           expect(response.status).to eq(200)
         end
 
-        it "removes orphaned BevyEvent record" do
-          payload_data = bevy_event_payload.first["data"].first
-          timestamp = Time.parse(payload_data["updated_ts"])
-
-          bevy_event =
-            BevyEvent.create!(bevy_event_id: payload_data["id"], bevy_updated_ts: timestamp)
-          expect(bevy_event.post_id).to be_nil
-
+        it "does not create a topic or bevy event for a test event" do
           hidden_payload = bevy_event_payload.deep_dup
-          hidden_payload.first["data"].first["is_hidden"] = true
-          hidden_payload.first["data"].first["updated_ts"] = (Time.now + 1.hour).to_s
-
-          expect { send_webhook(hidden_payload) }.to change { BevyEvent.count }.by(-1)
+          hidden_payload.first["data"].first["is_test"] = true
+          expect { send_webhook(hidden_payload) }.to not_change { Topic.count }.and(
+            not_change { BevyEvent.count },
+          )
 
           expect(response.status).to eq(200)
-          expect(BevyEvent.find_by(bevy_event_id: payload_data["id"])).to be_nil
         end
 
         it "removes topic and BevyEvent when event becomes hidden" do
