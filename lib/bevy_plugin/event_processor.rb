@@ -117,6 +117,19 @@ module BevyPlugin
           skip_bot: true,
         ).create
 
+      if post.id.nil?
+        error_details = {
+          bevy_event_id: event[:id],
+          user_id: user.id,
+          username: user.username,
+          category_id: category_id,
+          tags: tags,
+          errors: post.errors.full_messages,
+          title: topic_title,
+        }
+        Rails.logger.error("Bevy webhook: PostCreator failed - #{error_details.inspect}")
+      end
+
       bevy_event.post_id = post.id
       bevy_event.save
 
@@ -135,7 +148,7 @@ module BevyPlugin
         )
       end
 
-      User.find(Discourse.system_user.id)
+      Discourse.system_user
     end
 
     def cleanup_orphaned_bevy_event(event_id)

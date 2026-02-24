@@ -4,7 +4,7 @@ class BevyEvent < ActiveRecord::Base
   validates :bevy_event_id, presence: true, uniqueness: true
   validates :bevy_updated_ts, presence: true
 
-  belongs_to :post, optional: true
+  belongs_to :post, dependent: :destroy
 end
 
 # == Schema Information
