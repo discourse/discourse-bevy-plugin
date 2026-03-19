@@ -9,6 +9,8 @@ module BevyPlugin
     def process
       return [] if @event_data.empty?
 
+      log_incoming_events
+
       results = []
       errors = []
 
@@ -26,7 +28,7 @@ module BevyPlugin
         when "Published"
           if event[:is_hidden] == true || event[:is_test] == true
             delete_event_and_topic(event[:id])
-            Rails.logger.info(
+            debug_log(
               "Bevy webhook: Skipping hidden/test event #{event[:id]}, removed topic if it existed",
             )
             next
@@ -35,11 +37,10 @@ module BevyPlugin
           post = create_or_update_event(event)
 
           topic = post.topic
+          debug_log("Bevy Event - Result: Post ID: #{post.id}, Topic ID: #{topic.id}")
           results << build_result(topic, event)
         else
-          Rails.logger.info(
-            "Bevy webhook: Skipping event #{event[:id]} with status #{event[:status]}",
-          )
+          debug_log("Bevy webhook: Skipping event #{event[:id]} with status #{event[:status]}")
         end
       rescue => e
         Rails.logger.error(
@@ -143,9 +144,7 @@ module BevyPlugin
         user = User.find_by_email(published_by[:email])
         return user if user
 
-        Rails.logger.info(
-          "Bevy webhook: User not found for email #{published_by[:email]}, using system",
-        )
+        debug_log("Bevy webhook: User not found for email #{published_by[:email]}, using system")
       end
 
       Discourse.system_user
@@ -165,7 +164,7 @@ module BevyPlugin
         if post
           topic = post.topic
           PostDestroyer.new(Discourse.system_user, post).destroy
-          Rails.logger.info("Bevy webhook: Deleted topic #{topic.id} for hidden event #{event_id}")
+          debug_log("Bevy webhook: Deleted topic #{topic.id} for hidden event #{event_id}")
         end
       end
 
@@ -179,6 +178,23 @@ module BevyPlugin
         bevy_event_id: event[:id],
         status: event[:status],
       }
+    end
+
+    private
+
+    def log_incoming_events
+      debug_log("Bevy Webhook - Incoming Events")
+      @event_data.each do |event|
+        debug_log(
+          "Event ID: #{event[:id]}, Title: #{event[:title]}, Status: #{event[:status]}, " \
+            "Hidden: #{event[:is_hidden]}, Test: #{event[:is_test]}, URL: #{event[:url]}",
+        )
+      end
+    end
+
+    def debug_log(message)
+      return unless SiteSetting.bevy_webhook_debug_logging
+      Rails.logger.warn(message)
     end
   end
 end

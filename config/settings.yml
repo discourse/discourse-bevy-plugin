@@ -11,3 +11,6 @@ bevy_plugin:
   bevy_events_tag_rules:
     default: ""
     type: string
+  bevy_webhook_debug_logging:
+    default: false
+    client: true

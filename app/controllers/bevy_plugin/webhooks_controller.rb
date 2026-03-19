@@ -100,7 +100,7 @@ module BevyPlugin
             existing_event = ::BevyEvent.find_by(bevy_event_id: event[:id])
 
             if existing_event&.post_id.present? && existing_event.bevy_updated_ts >= updated_ts
-              Rails.logger.info(
+              Rails.logger.warn(
                 "Bevy webhook: Skipping outdated event #{event[:id]} (timestamp: #{updated_ts})",
               )
               raise Discourse::NotFound
