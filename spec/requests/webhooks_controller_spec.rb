@@ -187,21 +187,35 @@ describe BevyPlugin::WebhooksController do
         expect(bevy_event.post.topic.title).to eq(payload_data["title"])
       end
 
-      it "rejects webhook with same timestamp when event was successfully processed" do
+      it "filters out expired events but processes valid ones in the same payload" do
         send_webhook(bevy_event_payload)
-
         expect(response.status).to eq(200)
         expect(BevyEvent.count).to eq(1)
         expect(Topic.count).to eq(1)
 
-        bevy_event = BevyEvent.last
-        expect(bevy_event.post_id).to be_present
+        mixed_payload = bevy_event_payload.deep_dup
+        expired_event = mixed_payload.first["data"].first.deep_dup
+        expired_event["updated_ts"] = (Time.now - 1.hour).to_s # Older timestamp
 
-        send_webhook(bevy_event_payload)
+        new_event = mixed_payload.first["data"].first.deep_dup
+        new_event["id"] = "new-event-123"
+        new_event["title"] = "New Event Title"
+        new_event["updated_ts"] = (Time.now + 1.hour).to_s
 
-        expect(response.status).to eq(404)
-        expect(BevyEvent.count).to eq(1)
-        expect(Topic.count).to eq(1)
+        mixed_payload.first["data"] = [expired_event, new_event]
+
+        expect { send_webhook(mixed_payload) }.to change { Topic.count }.by(1).and(
+          change { BevyEvent.count }.by(1),
+        )
+
+        expect(response.status).to eq(200)
+        response_data = response.parsed_body
+        expect(response_data["success"]).to be true
+        expect(response_data["processed"]).to eq(1)
+
+        new_bevy_event = BevyEvent.find_by(bevy_event_id: "new-event-123")
+        expect(new_bevy_event).to be_present
+        expect(new_bevy_event.post.topic.title).to eq("New Event Title")
       end
 
       it "processes webhook with newer timestamp even when post exists" do
@@ -220,6 +234,37 @@ describe BevyPlugin::WebhooksController do
         expect(Topic.count).to eq(1)
         original_topic.reload
         expect(original_topic.title).to eq("Updated Title")
+      end
+
+      it "returns success with 0 processed when all events in payload are expired" do
+        first_payload = bevy_event_payload.deep_dup
+        send_webhook(first_payload)
+        expect(response.status).to eq(200)
+
+        second_payload = bevy_event_payload.deep_dup
+        second_payload.first["data"].first["id"] = "event-456"
+        second_payload.first["data"].first["title"] = "Second Event"
+        send_webhook(second_payload)
+        expect(response.status).to eq(200)
+
+        expect(BevyEvent.count).to eq(2)
+        expect(Topic.count).to eq(2)
+
+        all_expired_payload = bevy_event_payload.deep_dup
+        event_1 = all_expired_payload.first["data"].first
+        event_2 = all_expired_payload.first["data"].first.deep_dup
+        event_2["id"] = "event-456"
+        event_2["title"] = "Second Event"
+        all_expired_payload.first["data"] = [event_1, event_2]
+
+        expect { send_webhook(all_expired_payload) }.to not_change { Topic.count }.and(
+          not_change { BevyEvent.count },
+        )
+
+        expect(response.status).to eq(200)
+        response_data = response.parsed_body
+        expect(response_data["success"]).to be true
+        expect(response_data["processed"]).to eq(0)
       end
 
       context "when event is hidden or is test" do
