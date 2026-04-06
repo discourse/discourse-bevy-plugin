@@ -115,8 +115,6 @@ module BevyPlugin
                 "Bevy webhook: Skipping outdated event #{event[:id]} (timestamp: #{updated_ts})",
               )
               next true
-            elsif existing_event
-              existing_event.update!(bevy_updated_ts: updated_ts)
             end
 
             false
