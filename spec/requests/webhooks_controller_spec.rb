@@ -130,6 +130,40 @@ describe BevyPlugin::WebhooksController do
         expect(bevy_event.reload.post.topic.id).to eq(topic.id)
       end
 
+      it "updates bevy_updated_ts when event is created" do
+        timestamp = "2026-04-06T12:00:00.000000-09:00"
+        payload = bevy_event_payload.deep_dup
+        payload.first["data"].first["updated_ts"] = timestamp
+
+        send_webhook(payload)
+        expect(response.status).to eq(200)
+
+        bevy_event = BevyEvent.last
+        expect(bevy_event.bevy_updated_ts).to eq(Time.parse(timestamp))
+      end
+
+      it "updates bevy_updated_ts when existing event is processed" do
+        initial_timestamp = bevy_event_payload.first["data"].first["updated_ts"]
+
+        send_webhook(bevy_event_payload)
+        expect(response.status).to eq(200)
+
+        bevy_event = BevyEvent.last
+        expect(bevy_event.bevy_updated_ts).to eq(Time.parse(initial_timestamp))
+
+        # Send updated event with newer timestamp
+        newer_timestamp = Time.now.to_s
+        updated_payload = bevy_event_payload
+        updated_payload.first["data"].first["title"] = "Updated Title"
+        updated_payload.first["data"].first["updated_ts"] = newer_timestamp
+
+        send_webhook(updated_payload)
+        expect(response.status).to eq(200)
+
+        bevy_event.reload
+        expect(bevy_event.bevy_updated_ts).to eq(Time.parse(newer_timestamp))
+      end
+
       it "applies tags from JMESPath rules to created topics" do
         SiteSetting.bevy_events_tag_rules =
           "has-venue,venue_name|virtual,event_type_title == 'Virtual Event type'"
@@ -187,21 +221,33 @@ describe BevyPlugin::WebhooksController do
         expect(bevy_event.post.topic.title).to eq(payload_data["title"])
       end
 
-      it "rejects webhook with same timestamp when event was successfully processed" do
+      it "filters out expired events but processes valid ones in the same payload" do
         send_webhook(bevy_event_payload)
-
         expect(response.status).to eq(200)
         expect(BevyEvent.count).to eq(1)
         expect(Topic.count).to eq(1)
 
-        bevy_event = BevyEvent.last
-        expect(bevy_event.post_id).to be_present
+        expired_event = JSON.parse(bevy_event_payload.first["data"].first.to_json)
 
-        send_webhook(bevy_event_payload)
+        new_event = JSON.parse(bevy_event_payload.first["data"].first.to_json)
+        new_event["id"] = 1234
+        new_event["title"] = "New Event Title"
+        new_event["updated_ts"] = (Time.now + 1.hour).to_s
 
-        expect(response.status).to eq(404)
-        expect(BevyEvent.count).to eq(1)
-        expect(Topic.count).to eq(1)
+        mixed_payload = [{ "type" => "event", "data" => [expired_event, new_event] }]
+
+        expect { send_webhook(mixed_payload) }.to change { Topic.count }.by(1).and(
+          change { BevyEvent.count }.by(1),
+        )
+
+        expect(response.status).to eq(200)
+        response_data = response.parsed_body
+        expect(response_data["success"]).to be true
+        expect(response_data["processed"]).to eq(1)
+
+        new_bevy_event = BevyEvent.find_by(bevy_event_id: new_event["id"])
+        expect(new_bevy_event).to be_present
+        expect(new_bevy_event.post.topic.title).to eq("New Event Title")
       end
 
       it "processes webhook with newer timestamp even when post exists" do
@@ -220,6 +266,34 @@ describe BevyPlugin::WebhooksController do
         expect(Topic.count).to eq(1)
         original_topic.reload
         expect(original_topic.title).to eq("Updated Title")
+      end
+
+      it "returns success with 0 processed when all events in payload are expired" do
+        first_payload = JSON.parse(bevy_event_payload.to_json)
+        send_webhook(first_payload)
+        expect(response.status).to eq(200)
+
+        second_payload = JSON.parse(bevy_event_payload.to_json)
+        second_payload.first["data"].first["id"] = 456
+        second_payload.first["data"].first["title"] = "Second Event"
+        send_webhook(second_payload)
+        expect(response.status).to eq(200)
+
+        expect(BevyEvent.count).to eq(2)
+        expect(Topic.count).to eq(2)
+
+        event_1 = first_payload.first["data"].first
+        event_2 = second_payload.first["data"].first
+        all_expired_payload = [{ "type" => "event", "data" => [event_1, event_2] }]
+
+        expect { send_webhook(all_expired_payload) }.to not_change { Topic.count }.and(
+          not_change { BevyEvent.count },
+        )
+
+        expect(response.status).to eq(200)
+        response_data = response.parsed_body
+        expect(response_data["success"]).to be true
+        expect(response_data["processed"]).to eq(0)
       end
 
       context "when event is hidden or is test" do
@@ -383,22 +457,24 @@ describe BevyPlugin::WebhooksController do
 
         expect(DiscoursePostEvent::Invitee.count).to eq(2)
 
-        invitees = DiscoursePostEvent::Invitee.all
+        invitee1 = DiscoursePostEvent::Invitee.find_by(user: user)
+        invitee2 = DiscoursePostEvent::Invitee.find_by(user: user2)
 
-        expect(invitees.first.user).to eq(user)
-        expect(invitees.second.user).to eq(user2)
+        expect(invitee1).to be_present
+        expect(invitee2).to be_present
 
-        expect(invitees.first.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
-        expect(invitees.second.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
+        expect(invitee1.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
+        expect(invitee2.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
 
         bevy_attendee_payload.first["data"].first["status"] = "deleted"
 
         send_webhook(bevy_attendee_payload)
 
-        invitees = invitees.reload
+        invitee1.reload
+        invitee2.reload
 
-        expect(invitees.first.status).to eq(DiscoursePostEvent::Invitee.statuses[:not_going])
-        expect(invitees.second.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
+        expect(invitee1.status).to eq(DiscoursePostEvent::Invitee.statuses[:not_going])
+        expect(invitee2.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
       end
     end
   end

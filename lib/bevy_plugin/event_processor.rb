@@ -63,10 +63,9 @@ module BevyPlugin
     end
 
     def update_event_post(event, edit_reason:, allow_creation:)
-      bevy_event =
-        ::BevyEvent.find_or_create_by!(bevy_event_id: event[:id]) do |bevy_event|
-          bevy_event.bevy_updated_ts = Time.parse(event[:updated_ts])
-        end
+      bevy_event = ::BevyEvent.find_or_initialize_by(bevy_event_id: event[:id])
+      bevy_event.bevy_updated_ts = Time.parse(event[:updated_ts])
+      bevy_event.save!
 
       topic_title = event[:title]
       topic_content = ContentBuilder.new(event).build

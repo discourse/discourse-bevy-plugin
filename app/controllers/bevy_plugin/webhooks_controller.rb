@@ -6,7 +6,10 @@ module BevyPlugin
 
     skip_before_action :verify_authenticity_token, :redirect_to_login_if_required, :check_xhr
 
-    before_action :filter_unhandled, :ensure_webhook_authenticity, :filter_expired_event
+    before_action :log_webhook_payload,
+                  :filter_unhandled,
+                  :ensure_webhook_authenticity,
+                  :filter_expired_event
 
     HANDLED_EVENTS = %w[event attendee]
 
@@ -49,6 +52,13 @@ module BevyPlugin
 
     private
 
+    def log_webhook_payload
+      return unless SiteSetting.bevy_webhook_debug_logging
+
+      payload = webhook_payload
+      Rails.logger.info("Bevy webhook received: #{payload.to_json}")
+    end
+
     def process_attendee(events)
       BevyPlugin::AttendeeProcessor.new(events[:data]).process
     end
@@ -85,15 +95,16 @@ module BevyPlugin
 
       payload.each do |event_data|
         next unless event_data[:type] == "event"
+        next unless event_data[:data]
 
-        event_data[:data]&.each do |event|
-          next unless event[:id] && event[:updated_ts]
+        event_data[:data].reject! do |event|
+          next false unless event[:id] && event[:updated_ts]
 
           begin
             updated_ts = Time.parse(event[:updated_ts])
           rescue ArgumentError
             Rails.logger.warn("Bevy webhook: Invalid updated_ts for event #{event[:id]}")
-            next
+            next false
           end
 
           begin
@@ -103,10 +114,10 @@ module BevyPlugin
               Rails.logger.warn(
                 "Bevy webhook: Skipping outdated event #{event[:id]} (timestamp: #{updated_ts})",
               )
-              raise Discourse::NotFound
-            elsif existing_event
-              existing_event.update!(bevy_updated_ts: updated_ts)
+              next true
             end
+
+            false
           rescue ActiveRecord::RecordNotUnique
             retry
           end
@@ -114,8 +125,6 @@ module BevyPlugin
       end
 
       true
-    rescue Discourse::NotFound
-      raise
     rescue => e
       Rails.logger.error("Bevy webhook filter_expired_event error: #{e.message}")
       true
