@@ -162,7 +162,7 @@ module BevyPlugin
         post = Post.find_by(id: bevy_event.post_id)
         if post
           topic = post.topic
-          PostDestroyer.new(Discourse.system_user, post).destroy
+          PostDestroyer.new(Discourse.system_user, post, context: "bevy webhook: hidden event #{event_id}").destroy
           debug_log("Bevy webhook: Deleted topic #{topic.id} for hidden event #{event_id}")
         end
       end
