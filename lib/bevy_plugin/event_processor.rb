@@ -87,10 +87,8 @@ module BevyPlugin
       revisor = PostRevisor.new(post, topic)
       revisor.revise!(
         post.user,
-        title: topic_title,
-        raw: topic_content,
-        tags: tags,
-        edit_reason: edit_reason,
+        { title: topic_title, raw: topic_content, tags: tags, edit_reason: edit_reason },
+        bypass_rate_limiter: true,
       )
 
       post
