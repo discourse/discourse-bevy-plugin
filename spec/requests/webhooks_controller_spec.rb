@@ -7,7 +7,7 @@ describe BevyPlugin::WebhooksController do
 
   before do
     SiteSetting.bevy_plugin_enabled = true
-    SiteSetting.calendar_enabled = true
+    SiteSetting.discourse_events_enabled = true
     SiteSetting.discourse_post_event_enabled = true
     Jobs.run_immediately!
   end
