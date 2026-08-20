@@ -44,7 +44,7 @@ module BevyPlugin
         return nil
       end
 
-      discourse_event = DiscoursePostEvent::Event.find_by(id: bevy_event.post_id)
+      discourse_event = DiscourseEvents::Events::Event.find_by(id: bevy_event.post_id)
 
       unless discourse_event
         Rails.logger.warn("Bevy webhook: No discourse event found for post #{bevy_event.post_id}")
@@ -55,7 +55,7 @@ module BevyPlugin
       attrs =
         build_invitee_attributes(users_by_email, emails_statuses, discourse_event.id, timestamp)
 
-      DiscoursePostEvent::Invitee.upsert_all(attrs, unique_by: %i[post_id user_id]) if attrs.any?
+      DiscourseEvents::Events::Invitee.upsert_all(attrs, unique_by: %i[post_id user_id]) if attrs.any?
 
       { bevy_event_id: event_id, attendees_synced: attrs.length }
     end
@@ -91,8 +91,8 @@ module BevyPlugin
 
     def status_map
       {
-        registered: DiscoursePostEvent::Invitee.statuses[:going],
-        deleted: DiscoursePostEvent::Invitee.statuses[:not_going],
+        registered: DiscourseEvents::Events::Invitee.statuses[:going],
+        deleted: DiscourseEvents::Events::Invitee.statuses[:not_going],
       }
     end
   end

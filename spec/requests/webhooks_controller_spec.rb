@@ -67,10 +67,10 @@ describe BevyPlugin::WebhooksController do
         expect(bevy_event_topic.title).to eq(payload_data["title"])
         expect(bevy_event_topic.first_post.raw).to include("Bevy")
 
-        expect(DiscoursePostEvent::EventDate.last.starts_at.strftime("%Y-%m-%d %H:%M")).to eq(
+        expect(DiscourseEvents::Events::EventDate.last.starts_at.strftime("%Y-%m-%d %H:%M")).to eq(
           Time.parse(payload_data["start_date"]).utc.strftime("%Y-%m-%d %H:%M"),
         )
-        expect(DiscoursePostEvent::EventDate.last.ends_at.strftime("%Y-%m-%d %H:%M")).to eq(
+        expect(DiscourseEvents::Events::EventDate.last.ends_at.strftime("%Y-%m-%d %H:%M")).to eq(
           Time.parse(payload_data["end_date"]).utc.strftime("%Y-%m-%d %H:%M"),
         )
       end
@@ -95,10 +95,10 @@ describe BevyPlugin::WebhooksController do
           bevy_event_payload.first["data"].first["description"],
         )
 
-        expect(DiscoursePostEvent::EventDate.last.starts_at.strftime("%Y-%m-%d %H:%M")).to eq(
+        expect(DiscourseEvents::Events::EventDate.last.starts_at.strftime("%Y-%m-%d %H:%M")).to eq(
           Time.parse(payload_data["start_date"]).utc.strftime("%Y-%m-%d %H:%M"),
         )
-        expect(DiscoursePostEvent::EventDate.last.ends_at.strftime("%Y-%m-%d %H:%M")).to eq(
+        expect(DiscourseEvents::Events::EventDate.last.ends_at.strftime("%Y-%m-%d %H:%M")).to eq(
           Time.parse(payload_data["end_date"]).utc.strftime("%Y-%m-%d %H:%M"),
         )
       end
@@ -455,16 +455,16 @@ describe BevyPlugin::WebhooksController do
       it "creates an invitees and is able to update them" do
         send_webhook(bevy_attendee_payload)
 
-        expect(DiscoursePostEvent::Invitee.count).to eq(2)
+        expect(DiscourseEvents::Events::Invitee.count).to eq(2)
 
-        invitee1 = DiscoursePostEvent::Invitee.find_by(user: user)
-        invitee2 = DiscoursePostEvent::Invitee.find_by(user: user2)
+        invitee1 = DiscourseEvents::Events::Invitee.find_by(user: user)
+        invitee2 = DiscourseEvents::Events::Invitee.find_by(user: user2)
 
         expect(invitee1).to be_present
         expect(invitee2).to be_present
 
-        expect(invitee1.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
-        expect(invitee2.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
+        expect(invitee1.status).to eq(DiscourseEvents::Events::Invitee.statuses[:going])
+        expect(invitee2.status).to eq(DiscourseEvents::Events::Invitee.statuses[:going])
 
         bevy_attendee_payload.first["data"].first["status"] = "deleted"
 
@@ -473,8 +473,8 @@ describe BevyPlugin::WebhooksController do
         invitee1.reload
         invitee2.reload
 
-        expect(invitee1.status).to eq(DiscoursePostEvent::Invitee.statuses[:not_going])
-        expect(invitee2.status).to eq(DiscoursePostEvent::Invitee.statuses[:going])
+        expect(invitee1.status).to eq(DiscourseEvents::Events::Invitee.statuses[:not_going])
+        expect(invitee2.status).to eq(DiscourseEvents::Events::Invitee.statuses[:going])
       end
     end
   end
