@@ -55,7 +55,9 @@ module BevyPlugin
       attrs =
         build_invitee_attributes(users_by_email, emails_statuses, discourse_event.id, timestamp)
 
-      DiscourseEvents::Events::Invitee.upsert_all(attrs, unique_by: %i[post_id user_id]) if attrs.any?
+      if attrs.any?
+        DiscourseEvents::Events::Invitee.upsert_all(attrs, unique_by: %i[post_id user_id])
+      end
 
       { bevy_event_id: event_id, attendees_synced: attrs.length }
     end
