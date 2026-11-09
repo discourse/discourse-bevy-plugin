@@ -16,6 +16,7 @@ Integration with Bevy event management platform to automatically create and sync
 - Syncs attendee registrations from Bevy to discourse-post-event
 - Maps Bevy attendee statuses to Discourse invitee statuses:
   - `registered` → `going`
+  - `checked-in` → `going` (confirmed attendance remains tracked in Bevy)
   - `deleted` → `not_going`
 - Matches attendees by email address to Discourse users
 - Automatically creates/updates invitee records for discourse-post-event
