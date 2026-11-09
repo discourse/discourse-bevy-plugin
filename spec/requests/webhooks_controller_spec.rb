@@ -452,6 +452,21 @@ describe BevyPlugin::WebhooksController do
       let!(:user) { Fabricate(:user, email: bevy_attendee_payload.first["data"].first["email"]) }
       let!(:user2) { Fabricate(:user, email: bevy_attendee_payload.first["data"].second["email"]) }
 
+      it "syncs checked-in and registered attendees as going" do
+        bevy_attendee_payload.first["data"].first["status"] = "checked-in"
+
+        send_webhook(bevy_attendee_payload)
+
+        expect(response.status).to eq(200)
+        expect(response.parsed_body["topics"]).to contain_exactly(
+          { "bevy_event_id" => bevy_event.bevy_event_id, "attendees_synced" => 2 },
+        )
+        expect(event.invitees.pluck(:user_id, :status)).to contain_exactly(
+          [user.id, DiscourseEvents::Events::Invitee.statuses[:going]],
+          [user2.id, DiscourseEvents::Events::Invitee.statuses[:going]],
+        )
+      end
+
       it "creates an invitees and is able to update them" do
         send_webhook(bevy_attendee_payload)
 
