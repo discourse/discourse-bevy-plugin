@@ -94,6 +94,7 @@ module BevyPlugin
     def status_map
       {
         registered: DiscourseEvents::Events::Invitee.statuses[:going],
+        "checked-in": DiscourseEvents::Events::Invitee.statuses[:going],
         deleted: DiscourseEvents::Events::Invitee.statuses[:not_going],
       }
     end
